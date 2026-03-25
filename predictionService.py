@@ -49,6 +49,15 @@ def preprocess_data(data, features_list):
     final_df = final_df.fillna(0)
     final_df = final_df.astype(float)  # Ensuring numeric types for the model
 
+    # 7. Scale data
+    house_scaler = joblib.load("models/scaler_houses.pkl")
+    apart_scaler = joblib.load("models/scaler_apartments.pkl")
+
+    if data.type_of_property == "House":
+        final_df = house_scaler.transform(final_df)
+    elif data.type_of_property == "Apartment":
+        final_df = apart_scaler.transform(final_df)
+
     return final_df
 
 
@@ -117,11 +126,28 @@ features = {
         "province_West Flanders",
         "region_Wallonia",
     ],
-    "Apartment": ['number_of_rooms', 'living_area', 'fully_equipped_kitchen', 'furnished',
-                  'open_fire', 'terrace', 'terrace_area', 'garden', 'garden_area',
-                  'number_of_facades', 'swimming_pool', 'state_of_the_building',
-                  'province_Brussels', 'province_East Flanders',
-                  'province_Flemish Brabant', 'province_Hainaut', 'province_Liege',
-                  'province_Limburg', 'province_Namur', 'province_Walloon Brabant',
-                  'province_West Flanders', 'region_Wallonia']
+    "Apartment": [
+        "number_of_rooms",
+        "living_area",
+        "fully_equipped_kitchen",
+        "furnished",
+        "open_fire",
+        "terrace",
+        "terrace_area",
+        "garden",
+        "garden_area",
+        "number_of_facades",
+        "swimming_pool",
+        "state_of_the_building",
+        "province_Brussels",
+        "province_East Flanders",
+        "province_Flemish Brabant",
+        "province_Hainaut",
+        "province_Liege",
+        "province_Limburg",
+        "province_Namur",
+        "province_Walloon Brabant",
+        "province_West Flanders",
+        "region_Wallonia",
+    ],
 }

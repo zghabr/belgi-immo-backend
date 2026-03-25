@@ -1,71 +1,88 @@
+import pandas as pd
+import numpy as np
 
+df = pd.read_csv('./data/visuals_2026-03-25-12h46.csv', sep = ',')
 def get_stats_data():
+    data = df.copy()
+    
+    # Groupping by cities
+    stats = data.groupby('city').agg({
+        'price': ['median', 'count'],
+        'price_sqm': 'mean'
+    })
+    stats.columns = ['median_price', 'count', 'mean_price_sqm']
+    
+    # Small filter for relevance
+    reliable = stats[stats['count'] >= 5]
+
+    # Function to format TOP
+    def format_top(source_df, col_name, is_ascending=False, suffix=""):
+        top_5 = source_df.sort_values(by=col_name, ascending=is_ascending).head(5)
+        result = []
+        for city, row in top_5.iterrows():
+            val = int(row[col_name])
+            formatted_price = f"€{val:,}" + suffix
+            result.append({"name": city, "price": formatted_price})
+        return result
+
+    # Market Distribution
+    def get_market_dist(p_type):
+        subset = data[data['type_of_property'] == p_type]['price'].dropna()
+        total = len(subset)
+        if total == 0: return []
+        
+        categories = [
+            ("Budget (<300k)", subset < 300000, "#E5E7EB"),
+            ("Mid-Range (300k-600k)", (subset >= 300000) & (subset < 600000), "#9CA3AF"),
+            ("Premium (600k-1.2M)", (subset >= 600000) & (subset < 1200000), "#4B5563"),
+            ("Luxury (>1.2M)", subset >= 1200000, "#1F2937")
+        ]
+        
+        return [
+            {"name": name, "value": round((mask.sum() / total) * 100, 1), "color": color}
+            for name, mask, color in categories
+        ]
+
+    # Regional Comparison
+    regional_data = []
+    regions = [
+        ("Brussels", "region_Brussels"),
+        ("Flanders", "region_Flanders"),
+        ("Wallonia", "region_Wallonia")
+    ]
+    
+    for reg_name, reg_col in regions:
+        reg_subset = data[data[reg_col] == True]
+        if not reg_subset.empty:
+            regional_data.append({
+                "name": reg_name,
+                "house": int(reg_subset[reg_subset['type_of_property'] == 'House']['price'].median() or 0),
+                "apartment": int(reg_subset[reg_subset['type_of_property'] == 'Apartment']['price'].median() or 0),
+                "avgM2": int(reg_subset['price_sqm'].mean() or 0)
+            })
+
+    # Final dict
     return {
-        "summary": {"avg_price": 345000, "transactions": 128000, "regions_tracked": 3},
+        "summary": {
+            "avg_price": int(data['price'].mean()),
+            "transactions": len(data),
+            "regions_tracked": 3
+        },
         "top_expensive": {
-            "total": [
-                {"name": "Knokke-Heist", "price": "€845,000"},
-                {"name": "Ixelles", "price": "€720,000"},
-                {"name": "Uccle", "price": "€695,000"},
-                {"name": "Sint-Martens-Latem", "price": "€680,000"},
-                {"name": "Woluwe-Saint-Pierre", "price": "€650,000"},
-            ],
-            "per_m2": [
-                {"name": "Ixelles", "price": "€4,850/m²"},
-                {"name": "Saint-Gilles", "price": "€4,600/m²"},
-                {"name": "Brussels City", "price": "€4,400/m²"},
-                {"name": "Etterbeek", "price": "€4,350/m²"},
-                {"name": "Knokke-Heist", "price": "€4,200/m²"},
-            ],
+            "total": format_top(reliable, 'median_price', is_ascending=False),
+            "per_m2": format_top(reliable, 'mean_price_sqm', is_ascending=False, suffix="/m²")
         },
         "top_affordable": {
-            "total": [
-                {"name": "Hastière", "price": "€115,000"},
-                {"name": "Colfontaine", "price": "€128,000"},
-                {"name": "Quaregnon", "price": "€132,000"},
-                {"name": "Viroinval", "price": "€135,000"},
-                {"name": "Froidchapelle", "price": "€140,000"},
-            ],
-            "per_m2": [
-                {"name": "Colfontaine", "price": "€1,050/m²"},
-                {"name": "Quaregnon", "price": "€1,120/m²"},
-                {"name": "Frameries", "price": "€1,180/m²"},
-                {"name": "Dour", "price": "€1,220/m²"},
-                {"name": "Charleroi", "price": "€1,250/m²"},
-            ],
+            "total": format_top(reliable, 'median_price', is_ascending=True),
+            "per_m2": format_top(reliable, 'mean_price_sqm', is_ascending=True, suffix="/m²")
         },
-        "regional_comparison": [
-            {"name": "Brussels", "house": 485000, "apartment": 312000, "avgM2": 3200},
-            {"name": "Flanders", "house": 340000, "apartment": 245000, "avgM2": 2600},
-            {"name": "Wallonia", "house": 210000, "apartment": 185000, "avgM2": 1800},
-        ],
-        "scatter_data": [
-            {"area": 80, "price": 250000, "region": "Flanders"},
-            {"area": 120, "price": 380000, "region": "Flanders"},
-            {"area": 150, "price": 450000, "region": "Flanders"},
-            {"area": 200, "price": 580000, "region": "Flanders"},
-            {"area": 60, "price": 280000, "region": "Brussels"},
-            {"area": 90, "price": 420000, "region": "Brussels"},
-            {"area": 130, "price": 550000, "region": "Brussels"},
-            {"area": 180, "price": 720000, "region": "Brussels"},
-            {"area": 100, "price": 180000, "region": "Wallonia"},
-            {"area": 140, "price": 240000, "region": "Wallonia"},
-            {"area": 190, "price": 310000, "region": "Wallonia"},
-            {"area": 250, "price": 420000, "region": "Wallonia"},
-        ],
+        "regional_comparison": regional_data,
+        "scatter_data": data[['living_area', 'price', 'region']].dropna().sample(min(500, len(data))).rename(
+            columns={'living_area': 'area'}
+        ).to_dict(orient='records'),
         "market_distribution": {
-            "House": [
-                {"name": "Budget (<300k)", "value": 35, "color": "#E5E7EB"},
-                {"name": "Mid-Range (300k-600k)", "value": 45, "color": "#9CA3AF"},
-                {"name": "Premium (600k-1.2M)", "value": 15, "color": "#4B5563"},
-                {"name": "Luxury (>1.2M)", "value": 5, "color": "#1F2937"},
-            ],
-            "Apartment": [
-                {"name": "Budget (<300k)", "value": 55, "color": "#E5E7EB"},
-                {"name": "Mid-Range (300k-600k)", "value": 35, "color": "#9CA3AF"},
-                {"name": "Premium (600k-1.2M)", "value": 8, "color": "#4B5563"},
-                {"name": "Luxury (>1.2M)", "value": 2, "color": "#1F2937"},
-            ],
+            "House": get_market_dist("House"),
+            "Apartment": get_market_dist("Apartment")
         },
-        "currency": "EUR",
+        "currency": "EUR"
     }
