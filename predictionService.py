@@ -50,6 +50,7 @@ def preprocess_data(data, features_list):
     final_df = final_df.astype(float)  # Ensuring numeric types for the model
 
     # 7. Scale data
+<<<<<<< HEAD
     house_scaler = joblib.load("models/scaler_houses.pkl")
     apart_scaler = joblib.load("models/scaler_apartments.pkl")
 
@@ -57,6 +58,15 @@ def preprocess_data(data, features_list):
         final_df = house_scaler.transform(final_df)
     elif data.type_of_property == "Apartment":
         final_df = apart_scaler.transform(final_df)
+=======
+    house_scaler=joblib.load('models/scaler_houses.pkl')
+    apart_scaler=joblib.load('models/scaler_apartments.pkl')
+
+    if data.type_of_property == 'House':
+        final_df=house_scaler.transform(final_df)
+    elif data.type_of_property == 'Apartment':
+        final_df=apart_scaler.transform(final_df)
+>>>>>>> a069447a11aae8caf83a0bcdcfd1305273de8b9b
 
     return final_df
 
